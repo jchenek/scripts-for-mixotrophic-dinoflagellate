@@ -8,7 +8,7 @@ Trinity --seqType fq --SS_lib_type RF --samples_file <a_list_of_fq_path> --CPU 6
 get_longest_isoform_seq_per_trinity_gene.pl <Trinity.fasta> > <unigene.fasta>
 
 ##cluster similar transcripts using cdhit
-cd-hit-est -o <name_of_output_file> -i <unigene.fasta> -d 0 -c 95 -n 8 -M 60000 -T 64
+cd-hit-est -o <name_of_output_file> -i <unigene.fasta> -d 0 -c 0.95 -n 9 -M 60000 -T 64
 
 ##quality estimation using busco
 #check available database
