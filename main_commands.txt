@@ -1,0 +1,52 @@
+###commands used in study 'Transcriptomic insights into the shifting of trophic modes in mixotrophic dinoflagellate'
+
+##clean raw fq data using trimmomatic
+trimmomatic PE -threads 64 -phred33 <path/to/fq1> <path/to/fq2> -baseout <header_of_output_file> <path/to/TruSeq3-PE-2.fa>:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33
+
+##transcriptomic assembly using trinity
+Trinity --seqType fq --SS_lib_type RF --samples_file <a_list_of_fq_path> --CPU 64 --max_memory 200G --output <name_of_output_dir> --min_kmer_cov 1
+get_longest_isoform_seq_per_trinity_gene.pl <Trinity.fasta> > <unigene.fasta>
+
+##cluster similar transcripts using cdhit
+cd-hit-est -o <name_of_output_file> -i <unigene.fasta> -d 0 -c 95 -n 8 -M 60000 -T 64
+
+##quality estimation using busco
+#check available database
+busco --list-datasets
+#estimation based on specific database
+busco -i <assemblly> -l <name_of_LINEAGE_db> -o <name_of_output_dir> -m transcriptome --cpu 64
+
+##detect open reading frames (ORFs) in transcripts using transdecoder
+TransDecoder.LongOrfs -t <assembly>
+TransDecoder.Predict -t <assembly> --no_refine_starts
+
+##gene annotation using diamond
+#make diamond database
+diamond makedb --in <path/to/databse.fa> -d <name_of_diamond_db>
+#annotation
+diamond blastp --db <path/to/diamond_db> --query <path/to/cds.faa> --out <name_of_output_file> --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp --sensitive -k 1 -e 1e-20 -c1
+
+##get sam file using bowtie2
+#build bowtie2 index
+bowtie2-build --thread 64 <path/to/assembly> <name_of_index>
+#bowtie2 mapping
+bowtie2 -p 64 -x <name_of_index> -1 <path/to/fq1> -2 <path/to/fq2> -S <name_of_sam_file>
+
+##get raw counts using featurecounts 
+featureCounts -p -t CDS -g ID -M -O --fraction -T 64 -a <gff_file> -o featurecounts.txt <path/to/*.sam>
+
+##phylogenetic analysis
+#multiple sequence alignment using muscle
+muscle -in <path/to/fa_file> -fastaout <msa_file>
+#construct tree using iqtree
+iqtree -s <msa_file> -m TEST -bb 1000 -nt 64
+
+##qiime2
+#transform fq data to qza data
+qiime tools import --type 'SampleData[PairedEndSequencesWithQuality]' --input-path <manifest> --output-path paired-end-demux.qza --input-format PairedEndFastqManifestPhred33V2
+#check qulity and define '--p-trim' '--p-trunc' in the next step
+time qiime demux summarize --i-data paired-end-demux.qza --o-visualization demux.qzv
+#process dada2
+qiime dada2 denoise-paired --i-demultiplexed-seqs paired-end-demux.qza --p-trim-left-f <number> --p-trim-left-r <number> --p-trunc-len-f <number> --p-trunc-len-r <number> --o-table table.qza --o-representative-sequences rep-seqs.qza --o-denoising-stats denoising-stats.qza --p-n-threads 64
+#classification
+qiime feature-classifier classify-sklearn --i-classifier <path/to/classifier> --i-reads rep-seqs.qza --o-classification taxonomy.qza
