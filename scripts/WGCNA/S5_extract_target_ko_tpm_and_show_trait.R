@@ -16,6 +16,7 @@ setwd(workingDir)
 # Load the WGCNA package
 library(tidyverse)
 library(WGCNA)
+library(psych)
 # The following setting is important, do not omit
 options(stringsAsFactors = FALSE)
 # Allow multi-threading within WGCNA. At present this call is necessary
@@ -62,6 +63,12 @@ while (i <= length(target_datExpr_trait[1,])) {
   options(scipen=200)
   r_sqa <- round(summary(fit)$r.squared,2)
   p_val <- round(summary(fit)$coefficients[2,4],4)
+  
+  #spearman correlation
+  corr_matrix <- corr.test(target_datExpr_trait[,i], target_datExpr_trait$temperature, method = 'spearman')
+  my_cor_r <- round(corr_matrix$r,2)
+  my_cor_p <- round(corr_matrix$p,2)
+  
   #get gene name
   gene_name <- gene_list[names(target_datExpr_trait)[i],1]
   #plot
@@ -71,8 +78,12 @@ while (i <= length(target_datExpr_trait[1,])) {
        xlab="Temperature ¡ãC",ylab="TPM", cex.lab=1, font.lab=2, col.lab='#333333',
        font.axis = 2,col.axis='#333333'
   )
-  abline(fit, col = "#FF3333", lty = 1, lwd = 3)
-  mtext(bquote(paste("R"^2," = ",.(r_sqa),", ",italic(p),"-value = ",.(p_val))),
+  if(my_cor_p <= 0.05 & p_val <= 0.05){
+  abline(fit, col = "#FF3333", lty = 1, lwd = 3)}
+  if(my_cor_p > 0.05 & p_val < 0.05){
+    abline(fit, col = "yellow", lty = 1, lwd = 3)}
+  mtext(bquote(paste("R"^2," = ",.(r_sqa),", ",italic(p),"-value = ",.(p_val), 
+                      " cor_r = ",.(my_cor_r)," cor_p = ",.(my_cor_p))),
         side = 3, adj = 0, font = 2, cex=0.5)
   i = i+1
 }
